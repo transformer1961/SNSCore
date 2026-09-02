@@ -37,15 +37,28 @@ module.exports = [
   },
 
   {
-  id: 'tunes',
-  name: 'SNS Tunes',
-  enabled: true,
-  tokenEnv: 'TUNES_DISCORD_TOKEN',
-  snsBotIdEnv: 'SNS_TUNES_BOT_ID',
-  snsBotTokenEnv: 'SNS_TUNES_BOT_TOKEN',
-  clientIdEnv: 'TUNES_DISCORD_CLIENT_ID',
-  guildIdEnv: 'TUNES_DISCORD_GUILD_ID',
-  cogs: [],
-  primary: false
-}
+    id: 'tunes',
+    name: 'SNS Tunes',
+    enabled: true,
+    tokenEnv: 'TUNES_DISCORD_TOKEN',
+    snsBotIdEnv: 'SNS_TUNES_BOT_ID',
+    snsBotTokenEnv: 'SNS_TUNES_BOT_TOKEN',
+    clientIdEnv: 'TUNES_DISCORD_CLIENT_ID',
+    guildIdEnv: 'TUNES_DISCORD_GUILD_ID',
+    cogs: [],
+    primary: false
+  },
+
+  {
+    id: 'third',
+    name: 'SNS Third Bot',
+    enabled: true,
+    tokenEnv: 'THIRD_DISCORD_TOKEN',
+    snsBotIdEnv: 'SNS_THIRD_BOT_ID',
+    snsBotTokenEnv: 'SNS_THIRD_BOT_TOKEN',
+    clientIdEnv: 'THIRD_DISCORD_CLIENT_ID',
+    guildIdEnv: 'THIRD_DISCORD_GUILD_ID',
+    cogs: [],
+    primary: false
+  }
 ];
