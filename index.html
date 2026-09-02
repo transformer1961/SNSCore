@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SNS Core — Sentinel Network Systems</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-brand">
+      <div class="nav-mark">S</div>
+      <div class="nav-name">SNS Core<span>by Sentinel Network Systems</span></div>
+    </div>
+    <div class="nav-links">
+      <a href="/" class="active">Home</a>
+      <a href="/features.html">Features</a>
+      <a href="/status.html">Status</a>
+      <a href="/kepler.html">Kepler</a>
+      <a href="/docs.html">Docs</a>
+    </div>
+    <button class="btn-login">Sign in with Discord</button>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-mark">S</div>
+    <h1>The bot that stops all others.</h1>
+    <p>Moderation, operations, and incident response for Discord servers that can't afford to guess.</p>
+    <div class="hero-ctas">
+      <button class="btn-primary">Add to Discord</button>
+      <a href="/status.html"><button class="btn-secondary">View live status</button></a>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Bot Status</div>
+      <div class="stat-value status-online" id="stat-status">Online</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Guilds Protected</div>
+      <div class="stat-value" id="stat-guilds">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Incidents Handled</div>
+      <div class="stat-value" id="stat-incidents">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Uptime</div>
+      <div class="stat-value" id="stat-uptime">—</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-eyebrow">Operational Bulletin</div>
+      <div class="section-title">System Log</div>
+    </div>
+    <div class="feed-item">
+      <div class="feed-meta">
+        <div class="avatar"></div>
+        <span class="author">WatchDog</span>
+        <span>·</span>
+        <span>Placeholder timestamp</span>
+      </div>
+      <div class="feed-title">SNS Core site scaffold live</div>
+      <div class="feed-body">This feed will pull from the incident log and changelog once the webhook pipeline is wired up.</div>
+    </div>
+  </div>
+
+  <script>
+    function formatUptime(seconds) {
+      if (!seconds) return '—';
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+    }
+
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/bot-stats');
+        if (!res.ok) throw new Error('bad response');
+        const data = await res.json();
+
+        const statusEl = document.getElementById('stat-status');
+        statusEl.textContent = data.online ? 'Online' : 'Offline';
+        statusEl.classList.toggle('status-online', data.online);
+
+        document.getElementById('stat-guilds').textContent = data.guilds ?? '—';
+        document.getElementById('stat-incidents').textContent = data.incidentsHandledTotal ?? '—';
+        document.getElementById('stat-uptime').textContent = formatUptime(data.uptimeSeconds);
+      } catch (err) {
+        console.error('Failed to load bot stats', err);
+        document.getElementById('stat-status').textContent = 'Unavailable';
+      }
+    }
+
+    loadStats();
+    setInterval(loadStats, 20000); // refresh every 20s
+  </script>
+
+</body>
+</html>

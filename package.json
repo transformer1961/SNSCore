@@ -1,0 +1,9 @@
+{
+  "name": "sns-core-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "mongodb": "^6.8.0"
+  }
+}
