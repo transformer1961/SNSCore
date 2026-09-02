@@ -17,6 +17,8 @@ module.exports = [
     name: 'SNS Core',
     enabled: true,
     tokenEnv: 'DISCORD_TOKEN',
+    snsBotIdEnv: 'SNS_CORE_BOT_ID',
+    snsBotTokenEnv: 'SNS_CORE_BOT_TOKEN',
     clientIdEnv: 'DISCORD_CLIENT_ID',
     guildIdEnv: 'DISCORD_GUILD_ID',
     cogs: [
@@ -39,6 +41,8 @@ module.exports = [
   name: 'SNS Tunes',
   enabled: true,
   tokenEnv: 'TUNES_DISCORD_TOKEN',
+  snsBotIdEnv: 'SNS_TUNES_BOT_ID',
+  snsBotTokenEnv: 'SNS_TUNES_BOT_TOKEN',
   clientIdEnv: 'TUNES_DISCORD_CLIENT_ID',
   guildIdEnv: 'TUNES_DISCORD_GUILD_ID',
   cogs: [],

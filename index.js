@@ -5,6 +5,7 @@ const { startServer } = require('./lib/webhookServer');
 const botConfigs = require('./bots.config');
 const cogRegistry = require('./lib/cogRegistry');
 const { shouldStartBot, attachShutdownHandlers } = require('./lib/botManager');
+const { startGateway } = require('./lib/snsGateway');
 
 function buildClient(config) {
   const client = new Client({
@@ -103,6 +104,7 @@ function buildClient(config) {
     const client = buildClient(config);
     try {
       await client.login(token);
+      client.gatewayCleanup = startGateway(client);
       startedClients.push(client);
       startedAny = true;
     } catch (err) {

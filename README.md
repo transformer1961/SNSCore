@@ -25,6 +25,8 @@ To add another bot:
 
 A bot without a token set in `.env` is skipped at startup with a warning, so partially-configured entries in `bots.config.js` don't crash the process.
 
+Each configured bot can also connect to the SNS Core website gateway. Set `SNS_CORE_COMMAND_URL`, `SNS_CORE_WEBHOOK_URL`, and `BOT_WEBHOOK_SECRET`, then set a unique `SNS_CORE_BOT_ID` and `SNS_CORE_BOT_TOKEN` for each bot. The bot token is generated when the bot is registered in the Core Owner Panel and must be approved there before commands are accepted.
+
 ## Commands
 
 **Ops**
@@ -75,7 +77,7 @@ All three check `x-webhook-secret` against `WEBHOOK_SECRET` if it's set.
 
 ## Outbound REST API (bot → site)
 
-For the website's admin panel to read bot status and trigger actions. Requires `API_KEY` in `.env` — every `/api/*` route refuses requests (503) until it's set, and requires a matching `x-api-key` header otherwise (401).
+The SNS Core gateway lets the website read bot status and queue commands. The gateway uses the registered per-bot token plus the shared `BOT_WEBHOOK_SECRET`; it is separate from the older local `/api/*` server, which still uses `API_KEY`.
 
 **Call these from a server-side Netlify Function, never directly from the browser** — `API_KEY` would be exposed in client-side JS otherwise. See `website-integration-examples/` for ready-to-adapt proxy functions.
 
@@ -103,9 +105,10 @@ Register the redirect URI in the [Discord Developer Portal](https://discord.com/
 
 Needs a persistent process (WebSocket connection to Discord) — Netlify Functions won't work for the bot itself. Railway or Fly.io are the simplest cheap options; a small VPS works too.
 
-## Next steps to fill in
+## Gateway behavior
 
 - `account-lookup`/`account-reset` field names are guesses — verify against your real SNS-web user schema before using `/account-reset` on a live account.
-- No rate limiting on the webhook/API endpoints yet — worth adding once they're internet-facing.
+- The gateway sends a heartbeat every 30 seconds and polls for commands every 5 seconds.
+- Supported website commands are `enable`, `disable`, `restart`, `shutdown`, and `trigger_lockdown`.
+- Each command is reported as `running`, `completed`, or `failed`.
 - Slash commands are guild-scoped (instant registration) for now. Switch to global registration once stable — global commands take up to an hour to propagate.
-- The OAuth callback's session-creation step is unimplemented — needs to match SNS-web's existing auth pattern.
