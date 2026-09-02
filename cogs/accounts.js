@@ -5,7 +5,7 @@
 // test against a throwaway account first if possible.
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { isAdmin } = require('../lib/permissions');
