@@ -20,6 +20,7 @@ module.exports = [
     snsBotIdEnv: 'SNS_CORE_BOT_ID',
     snsBotTokenEnv: 'SNS_CORE_BOT_TOKEN',
     notificationWebhookEnv: 'SNS_NOTIFICATION_WEBHOOK_URL',
+    deployHookEnv: 'SNS_RAILWAY_DEPLOY_HOOK_URL',
     clientIdEnv: 'DISCORD_CLIENT_ID',
     guildIdEnv: 'DISCORD_GUILD_ID',
     cogs: [
@@ -45,6 +46,7 @@ module.exports = [
     snsBotIdEnv: 'SNS_TUNES_BOT_ID',
     snsBotTokenEnv: 'SNS_TUNES_BOT_TOKEN',
     notificationWebhookEnv: 'SNS_TUNES_NOTIFICATION_WEBHOOK_URL',
+    deployHookEnv: 'SNS_TUNES_RAILWAY_DEPLOY_HOOK_URL',
     clientIdEnv: 'TUNES_DISCORD_CLIENT_ID',
     guildIdEnv: 'TUNES_DISCORD_GUILD_ID',
     cogs: [],
@@ -59,6 +61,7 @@ module.exports = [
     snsBotIdEnv: 'SNS_THIRD_BOT_ID',
     snsBotTokenEnv: 'SNS_THIRD_BOT_TOKEN',
     notificationWebhookEnv: 'SNS_THIRD_NOTIFICATION_WEBHOOK_URL',
+    deployHookEnv: 'SNS_THIRD_RAILWAY_DEPLOY_HOOK_URL',
     clientIdEnv: 'THIRD_DISCORD_CLIENT_ID',
     guildIdEnv: 'THIRD_DISCORD_GUILD_ID',
     cogs: [],
