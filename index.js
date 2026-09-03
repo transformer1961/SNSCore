@@ -6,8 +6,10 @@ const botConfigs = require('./bots.config');
 const cogRegistry = require('./lib/cogRegistry');
 const { shouldStartBot, attachShutdownHandlers } = require('./lib/botManager');
 const { startGateway } = require('./lib/snsGateway');
+const { normalizeBotConfig } = require('./lib/config');
 
 function buildClient(config) {
+  const normalizedConfig = normalizeBotConfig(config);
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -15,13 +17,13 @@ function buildClient(config) {
     ]
   });
 
-  client.config = config;
+  client.config = normalizedConfig;
 
   client.commands = new Collection();
-  for (const cogName of config.cogs || []) {
+  for (const cogName of normalizedConfig.cogs) {
     const cog = cogRegistry[cogName];
     if (!cog) {
-      console.warn(`[${config.id}] Unknown cog "${cogName}" in bots.config.js, skipping.`);
+      console.warn(`[${normalizedConfig.id}] Unknown cog "${cogName}" in bots.config.js, skipping.`);
       continue;
     }
     for (const cmd of cog.commands) {
@@ -29,10 +31,10 @@ function buildClient(config) {
     }
   }
 
-  client.once('clientReady', async () => {
-    console.log(`[${config.id}] Logged in as ${client.user.tag}`);
+  client.once('ready', async () => {
+    console.log(`[${normalizedConfig.id}] Logged in as ${client.user.tag}`);
 
-    if (config.primary) {
+    if (normalizedConfig.primary) {
       try {
         const state = await getBotState();
         if (state.maintenance?.active) {
@@ -41,10 +43,10 @@ function buildClient(config) {
           await client.user.setPresence({ activities: [{ name: 'SNS systems' }], status: 'online' });
         }
       } catch {
-        console.warn(`[${config.id}] Could not restore presence from DB (maintenance state).`);
+        console.warn(`[${normalizedConfig.id}] Could not restore presence from DB (maintenance state).`);
       }
 
-      const guildId = config.guildIdEnv ? process.env[config.guildIdEnv] : process.env.DISCORD_GUILD_ID;
+      const guildId = normalizedConfig.guildIdEnv ? process.env[normalizedConfig.guildIdEnv] : process.env.DISCORD_GUILD_ID;
       startServer(client, guildId);
     }
   });
@@ -58,7 +60,7 @@ function buildClient(config) {
     try {
       await command.execute(interaction);
     } catch (err) {
-      console.error(`[${config.id}] Error executing /${interaction.commandName}:`, err);
+      console.error(`[${normalizedConfig.id}] Error executing /${interaction.commandName}:`, err);
       const payload = { content: 'Something went wrong running that command.', flags: MessageFlags.Ephemeral };
       try {
         if (interaction.replied || interaction.deferred) {
@@ -67,13 +69,13 @@ function buildClient(config) {
           await interaction.reply(payload);
         }
       } catch (replyErr) {
-        console.error(`[${config.id}] Could not send error reply for /${interaction.commandName}:`, replyErr.message);
+        console.error(`[${normalizedConfig.id}] Could not send error reply for /${interaction.commandName}:`, replyErr.message);
       }
     }
   });
 
   client.on('error', (err) => {
-    console.error(`[${config.id}] Client error:`, err);
+    console.error(`[${normalizedConfig.id}] Client error:`, err);
   });
 
   return client;
@@ -90,25 +92,26 @@ function buildClient(config) {
   let startedAny = false;
 
   for (const config of botConfigs) {
-    if (!shouldStartBot(config)) {
-      console.warn(`[${config.id}] Disabled in bots.config.js — skipping startup.`);
+    const normalizedConfig = normalizeBotConfig(config);
+    if (!shouldStartBot(normalizedConfig)) {
+      console.warn(`[${normalizedConfig.id}] Disabled in bots.config.js — skipping startup.`);
       continue;
     }
 
-    const token = process.env[config.tokenEnv];
+    const token = process.env[normalizedConfig.tokenEnv];
     if (!token) {
-      console.warn(`[${config.id}] Skipping — ${config.tokenEnv} not set in .env.`);
+      console.warn(`[${normalizedConfig.id}] Skipping — ${normalizedConfig.tokenEnv} not set in .env.`);
       continue;
     }
 
-    const client = buildClient(config);
+    const client = buildClient(normalizedConfig);
     try {
       await client.login(token);
       client.gatewayCleanup = startGateway(client);
       startedClients.push(client);
       startedAny = true;
     } catch (err) {
-      console.error(`[${config.id}] Failed to log in:`, err.message);
+      console.error(`[${normalizedConfig.id}] Failed to log in:`, err.message);
     }
   }
 
