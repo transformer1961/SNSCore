@@ -125,6 +125,55 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: JSON.stringify({ ok: true, type: 'event' }) };
     }
 
+    if (payload.type === 'blacklist_update') {
+      const validScopes = ['user', 'server'];
+      const validActions = ['add', 'remove', 'lift', 'appeal'];
+      if (!validScopes.includes(payload.scope) || !validActions.includes(payload.action) || !payload.subjectId) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'scope, action, and subjectId are required' }) };
+      }
+
+      const collection = payload.scope === 'user' ? 'blacklist_entries' : 'server_blacklist_entries';
+      const entry = payload.entry && typeof payload.entry === 'object' ? payload.entry : {};
+      const safeEntry = payload.scope === 'user'
+        ? {
+            userId: payload.subjectId,
+            reason: entry.reason || null,
+            addedBy: entry.addedBy || null,
+            addedAt: entry.addedAt || null,
+            source: payload.source || 'sentinel-bot',
+            updatedAt: new Date().toISOString()
+          }
+        : {
+            serverId: payload.subjectId,
+            serverName: entry.serverName || 'Unknown',
+            reason: entry.reason || null,
+            addedBy: entry.addedBy || null,
+            addedById: entry.addedById || null,
+            addedAt: entry.addedAt || null,
+            memberCount: Number(entry.memberCount) || 0,
+            ownerId: entry.ownerId || null,
+            status: entry.status || (payload.action === 'lift' ? 'LIFTED' : 'ACTIVE'),
+            appealNotes: Array.isArray(entry.appealNotes) ? entry.appealNotes : [],
+            liftedAt: entry.liftedAt || null,
+            liftedBy: entry.liftedBy || null,
+            liftReason: entry.liftReason || null,
+            source: payload.source || 'sentinel-bot',
+            updatedAt: new Date().toISOString()
+          };
+
+      if (payload.scope === 'user' && payload.action === 'remove') {
+        await db.collection(collection).deleteOne({ _id: payload.subjectId });
+      } else {
+        await db.collection(collection).updateOne(
+          { _id: payload.subjectId },
+          { $set: safeEntry },
+          { upsert: true }
+        );
+      }
+
+      return { statusCode: 200, body: JSON.stringify({ ok: true, type: 'blacklist_update', scope: payload.scope, action: payload.action }) };
+    }
+
     return { statusCode: 400, body: JSON.stringify({ error: 'Unknown payload type' }) };
   } catch (err) {
     console.error('bot-event-webhook error:', err);
