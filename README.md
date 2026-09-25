@@ -1,6 +1,10 @@
-# SNS Core
+# SNS Core Runtime
 
-Admin/ops Discord bot for Sentinel Network Systems, with a multi-bot loader and a REST API for integrating with SNS-web.
+This repository is the SNS Core Runtime, not the Core control platform. Core owns enrollment, authorization, command approval, global controls, and audit administration. The runtime owns Discord connections and executes approved commands for registered services.
+
+The shared architecture and operating contract is documented in [SNS-Architecture-Operations](../../Docs/SNS-Architecture-Operations.md).
+
+The runtime is an SNS service within the SNS Network. Network connectivity does not grant authority; every service connection must use approved credentials and the Core command contract.
 
 ## Setup
 
