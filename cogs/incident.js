@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ChannelType, MessageFlags } = require('discord.js');
 const { isAdmin } = require('../lib/permissions');
-const { getBotState } = require('../lib/db');
+const { connectDB, getBotState, Incident } = require('../lib/db');
+const { buildIncidentSummary, isValidTransition, normalizeIncidentState } = require('../lib/incidentLifecycle');
 
 const commands = [
   {
@@ -274,6 +275,210 @@ const commands = [
         .setFooter({ text: `Unmuted by ${interaction.user.tag}` });
 
       await interaction.reply({ embeds: [embed] });
+    }
+  },
+  {
+    data: new SlashCommandBuilder()
+      .setName('incident')
+      .setDescription('Create and manage SNS incidents')
+      .addSubcommand(sub =>
+        sub.setName('create')
+          .setDescription('Create a new incident')
+          .addStringOption(opt => opt.setName('title').setDescription('Short incident title').setRequired(true))
+          .addStringOption(opt => opt.setName('severity').setDescription('Severity').addChoices(
+            { name: 'Low', value: 'low' },
+            { name: 'Medium', value: 'medium' },
+            { name: 'High', value: 'high' },
+            { name: 'Critical', value: 'critical' }
+          ))
+          .addStringOption(opt => opt.setName('reason').setDescription('Reason for the incident').setRequired(true))
+          .addStringOption(opt => opt.setName('owner').setDescription('Assigned owner'))
+      )
+      .addSubcommand(sub =>
+        sub.setName('status')
+          .setDescription('Show an incident status')
+          .addStringOption(opt => opt.setName('id').setDescription('Incident ID').setRequired(true))
+      )
+      .addSubcommand(sub =>
+        sub.setName('assign')
+          .setDescription('Assign an incident to an owner')
+          .addStringOption(opt => opt.setName('id').setDescription('Incident ID').setRequired(true))
+          .addStringOption(opt => opt.setName('owner').setDescription('New owner').setRequired(true))
+          .addStringOption(opt => opt.setName('note').setDescription('Assignment note'))
+      )
+      .addSubcommand(sub =>
+        sub.setName('resolve')
+          .setDescription('Resolve an incident')
+          .addStringOption(opt => opt.setName('id').setDescription('Incident ID').setRequired(true))
+          .addStringOption(opt => opt.setName('resolution').setDescription('Resolution summary').setRequired(true))
+      ),
+    async execute(interaction) {
+      if (!isAdmin(interaction)) {
+        return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+      }
+
+      const subcommand = interaction.options.getSubcommand();
+      const actor = interaction.user.tag;
+      const guildId = interaction.guildId || 'unknown';
+
+      try {
+        await connectDB();
+      } catch (err) {
+        return interaction.reply({
+          content: 'Could not reach the database — check `MONGODB_URI` in the bot\'s `.env`.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      if (subcommand === 'create') {
+        const title = interaction.options.getString('title');
+        const severity = interaction.options.getString('severity') || 'medium';
+        const reason = interaction.options.getString('reason');
+        const owner = interaction.options.getString('owner') || interaction.user.tag;
+
+        const incidentId = `INC-${Date.now().toString(36).toUpperCase()}`;
+        const incident = await Incident.create({
+          incidentId,
+          title,
+          severity,
+          status: 'open',
+          owner,
+          guildId,
+          reason,
+          createdBy: actor,
+          timeline: [{ actor, action: 'created', note: reason }],
+        });
+
+        const summary = buildIncidentSummary({
+          id: incident.incidentId,
+          title: incident.title,
+          severity: incident.severity,
+          status: incident.status,
+          owner: incident.owner,
+          guildId: incident.guildId,
+          reason: incident.reason,
+        });
+
+        const embed = new EmbedBuilder()
+          .setTitle('🚨 Incident Created')
+          .setDescription(`**ID:** ${summary.id}\n**Title:** ${summary.title}\n**Severity:** ${summary.severity}\n**Owner:** ${summary.owner}`)
+          .addFields(
+            { name: 'Reason', value: summary.reason || 'No reason provided', inline: false },
+            { name: 'Guild', value: summary.guildId || 'unknown', inline: true },
+            { name: 'Status', value: summary.status, inline: true }
+          )
+          .setColor(0xe74c3c)
+          .setFooter({ text: `Created by ${actor}` })
+          .setTimestamp();
+
+        return interaction.reply({ embeds: [embed] });
+      }
+
+      if (subcommand === 'status') {
+        const incidentId = interaction.options.getString('id');
+        const incident = await Incident.findOne({ incidentId });
+
+        if (!incident) {
+          return interaction.reply({ content: `Incident ${incidentId} was not found.`, flags: MessageFlags.Ephemeral });
+        }
+
+        const summary = buildIncidentSummary({
+          id: incident.incidentId,
+          title: incident.title,
+          severity: incident.severity,
+          status: incident.status,
+          owner: incident.owner,
+          guildId: incident.guildId,
+          reason: incident.reason,
+        });
+
+        const embed = new EmbedBuilder()
+          .setTitle(`Incident ${summary.id}`)
+          .setDescription(summary.title)
+          .addFields(
+            { name: 'Status', value: normalizeIncidentState(summary.status), inline: true },
+            { name: 'Severity', value: summary.severity, inline: true },
+            { name: 'Owner', value: summary.owner || 'unassigned', inline: true },
+            { name: 'Reason', value: summary.reason || 'No reason provided', inline: false },
+            { name: 'Guild', value: summary.guildId || 'unknown', inline: true }
+          )
+          .setColor(summary.severity === 'critical' ? 0x8e44ad : summary.severity === 'high' ? 0xe67e22 : 0x3498db)
+          .setTimestamp();
+
+        return interaction.reply({ embeds: [embed] });
+      }
+
+      if (subcommand === 'assign') {
+        const incidentId = interaction.options.getString('id');
+        const owner = interaction.options.getString('owner');
+        const note = interaction.options.getString('note') || 'Assigned by operator';
+
+        const incident = await Incident.findOne({ incidentId });
+        if (!incident) {
+          return interaction.reply({ content: `Incident ${incidentId} was not found.`, flags: MessageFlags.Ephemeral });
+        }
+
+        const targetStatus = incident.status === 'open' ? 'assigned' : incident.status;
+        if (incident.status !== targetStatus && !isValidTransition(incident.status, targetStatus)) {
+          return interaction.reply({
+            content: `Incident ${incidentId} cannot be assigned from ${incident.status} to ${targetStatus}.`,
+            flags: MessageFlags.Ephemeral
+          });
+        }
+
+        incident.owner = owner;
+        incident.status = targetStatus;
+        incident.updatedAt = new Date();
+        incident.timeline.push({ actor, action: 'assigned', note });
+        await incident.save();
+
+        return interaction.reply({
+          content: `Incident ${incidentId} assigned to ${owner}.`,
+          embeds: [
+            new EmbedBuilder()
+              .setTitle('📌 Incident Assigned')
+              .setDescription(`**ID:** ${incident.incidentId}\n**Owner:** ${owner}\n**Status:** ${incident.status}`)
+              .setColor(0x3498db)
+              .setTimestamp()
+          ]
+        });
+      }
+
+      if (subcommand === 'resolve') {
+        const incidentId = interaction.options.getString('id');
+        const resolution = interaction.options.getString('resolution');
+
+        const incident = await Incident.findOne({ incidentId });
+        if (!incident) {
+          return interaction.reply({ content: `Incident ${incidentId} was not found.`, flags: MessageFlags.Ephemeral });
+        }
+
+        if (!isValidTransition(incident.status, 'resolved')) {
+          return interaction.reply({
+            content: `Incident ${incidentId} cannot be resolved while it is ${incident.status}.`,
+            flags: MessageFlags.Ephemeral
+          });
+        }
+
+        incident.status = 'resolved';
+        incident.resolution = resolution;
+        incident.updatedAt = new Date();
+        incident.timeline.push({ actor, action: 'resolved', note: resolution });
+        await incident.save();
+
+        return interaction.reply({
+          content: `Incident ${incidentId} marked as resolved.`,
+          embeds: [
+            new EmbedBuilder()
+              .setTitle('✅ Incident Resolved')
+              .setDescription(`**ID:** ${incident.incidentId}\n**Resolution:** ${resolution}`)
+              .setColor(0x2ecc71)
+              .setTimestamp()
+          ]
+        });
+      }
+
+      return interaction.reply({ content: 'Unsupported incident action.', flags: MessageFlags.Ephemeral });
     }
   }
 ];
