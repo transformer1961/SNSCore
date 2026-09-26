@@ -1,6 +1,12 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { EventLog } = require('../lib/db');
 
+const botDescriptions = [
+  '**SNS Core** - primary operations bot for commands, moderation, incidents, security, and the Core gateway.',
+  '**SNS Tunes** - secondary bot reserved for music and additional service features; no cogs are currently enabled.',
+  '**SNS Third** - secondary SNS bot reserved for future services; no cogs are currently enabled.',
+];
+
 const commands = [
   {
     data: new SlashCommandBuilder()
@@ -20,6 +26,30 @@ const commands = [
         )
         .setColor(0x2ecc71)
         .setTimestamp(new Date());
+
+      await interaction.reply({ embeds: [embed] });
+    }
+  },
+  {
+    data: new SlashCommandBuilder()
+      .setName('infomssge')
+      .setDescription('Explain the SNS bots and identify this server environment'),
+    async execute(interaction) {
+      const developmentGuildId = process.env.SNS_DEV_GUILD_ID;
+      const environment = developmentGuildId
+        ? interaction.guildId === developmentGuildId ? 'Development server' : 'Non-development server'
+        : 'Development server ID is not configured';
+
+      const embed = new EmbedBuilder()
+        .setTitle('SNS Bot Information')
+        .setDescription(botDescriptions.join('\n\n'))
+        .addFields({
+          name: 'Server environment',
+          value: `${environment}\n${interaction.guild?.name || 'Unknown server'} (${interaction.guildId})`,
+          inline: false,
+        })
+        .setColor(0x3498db)
+        .setTimestamp();
 
       await interaction.reply({ embeds: [embed] });
     }

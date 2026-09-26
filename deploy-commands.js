@@ -7,9 +7,12 @@ const cogRegistry = require('./lib/cogRegistry');
   for (const config of botConfigs) {
     const token = process.env[config.tokenEnv];
     const clientId = process.env[config.clientIdEnv];
-    const guildId = config.guildIdEnv ? process.env[config.guildIdEnv] : process.env.DISCORD_GUILD_ID;
+    const guildIds = [...new Set([
+      config.guildIdEnv ? process.env[config.guildIdEnv] : process.env.DISCORD_GUILD_ID,
+      process.env.SNS_DEV_GUILD_ID,
+    ].filter(Boolean))];
 
-    if (!token || !clientId || !guildId) {
+    if (!token || !clientId || !guildIds.length) {
       console.warn(`[${config.id}] Skipping — missing ${config.tokenEnv}, ${config.clientIdEnv}, or a guild ID in .env.`);
       continue;
     }
@@ -27,12 +30,14 @@ const cogRegistry = require('./lib/cogRegistry');
 
     const rest = new REST().setToken(token);
 
-    try {
-      console.log(`[${config.id}] Registering ${commands.length} slash command(s)...`);
-      await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
-      console.log(`[${config.id}] Done.`);
-    } catch (err) {
-      console.error(`[${config.id}] Failed to register commands:`, err);
+    for (const guildId of guildIds) {
+      try {
+        console.log(`[${config.id}] Registering ${commands.length} slash command(s) in ${guildId}...`);
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
+        console.log(`[${config.id}] Done for ${guildId}.`);
+      } catch (err) {
+        console.error(`[${config.id}] Failed to register commands in ${guildId}:`, err);
+      }
     }
   }
 })();

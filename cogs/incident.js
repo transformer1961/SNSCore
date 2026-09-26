@@ -1,7 +1,23 @@
 const { SlashCommandBuilder, EmbedBuilder, ChannelType, MessageFlags } = require('discord.js');
 const { isAdmin } = require('../lib/permissions');
-const { connectDB, getBotState, Incident } = require('../lib/db');
+const { connectDB, getBotState, EventLog, Incident } = require('../lib/db');
 const { buildIncidentSummary, isValidTransition, normalizeIncidentState } = require('../lib/incidentLifecycle');
+
+async function recordIncidentEvent({ action, actor, incident, reason, result }) {
+  await EventLog.create({
+    type: 'incident',
+    source: 'sns-core-runtime',
+    payload: {
+      action,
+      actor,
+      incidentId: incident.incidentId,
+      guildId: incident.guildId,
+      status: incident.status,
+      reason: reason || null,
+      result: result || 'success',
+    },
+  });
+}
 
 const commands = [
   {
@@ -285,13 +301,13 @@ const commands = [
         sub.setName('create')
           .setDescription('Create a new incident')
           .addStringOption(opt => opt.setName('title').setDescription('Short incident title').setRequired(true))
+          .addStringOption(opt => opt.setName('reason').setDescription('Reason for the incident').setRequired(true))
           .addStringOption(opt => opt.setName('severity').setDescription('Severity').addChoices(
             { name: 'Low', value: 'low' },
             { name: 'Medium', value: 'medium' },
             { name: 'High', value: 'high' },
             { name: 'Critical', value: 'critical' }
           ))
-          .addStringOption(opt => opt.setName('reason').setDescription('Reason for the incident').setRequired(true))
           .addStringOption(opt => opt.setName('owner').setDescription('Assigned owner'))
       )
       .addSubcommand(sub =>
@@ -348,6 +364,7 @@ const commands = [
           createdBy: actor,
           timeline: [{ actor, action: 'created', note: reason }],
         });
+        await recordIncidentEvent({ action: 'incident.created', actor, incident, reason });
 
         const summary = buildIncidentSummary({
           id: incident.incidentId,
@@ -431,6 +448,7 @@ const commands = [
         incident.updatedAt = new Date();
         incident.timeline.push({ actor, action: 'assigned', note });
         await incident.save();
+        await recordIncidentEvent({ action: 'incident.assigned', actor, incident, reason: note });
 
         return interaction.reply({
           content: `Incident ${incidentId} assigned to ${owner}.`,
@@ -465,6 +483,7 @@ const commands = [
         incident.updatedAt = new Date();
         incident.timeline.push({ actor, action: 'resolved', note: resolution });
         await incident.save();
+        await recordIncidentEvent({ action: 'incident.resolved', actor, incident, reason: resolution, result: 'resolved' });
 
         return interaction.reply({
           content: `Incident ${incidentId} marked as resolved.`,
