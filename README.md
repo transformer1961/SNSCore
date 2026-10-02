@@ -109,6 +109,12 @@ Register the redirect URI in the [Discord Developer Portal](https://discord.com/
 
 Needs a persistent process (WebSocket connection to Discord) — Netlify Functions won't work for the bot itself. Railway or Fly.io are the simplest cheap options; a small VPS works too.
 
+### Netlify static site
+
+The website scaffold is deployed directly from `public/`, as configured in `netlify.toml`. No build command is required. Keep the Netlify build command empty and the publish directory set to `public` if configuring deployment manually.
+
+Place website HTML, stylesheets, and other public assets in `public/`. Do not publish the repository root: it contains the bot runtime and server-side code. The Discord bot still needs separate persistent hosting.
+
 ## Gateway behavior
 
 - `account-lookup`/`account-reset` field names are guesses — verify against your real SNS-web user schema before using `/account-reset` on a live account.
